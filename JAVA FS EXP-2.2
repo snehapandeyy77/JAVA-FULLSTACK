@@ -1,0 +1,125 @@
+package com.example.productapp;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Controller;
+import org.springframework.http.MediaType;
+
+import java.util.Arrays;
+import java.util.List;
+
+@SpringBootApplication
+public class ProductApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ProductApplication.class, args);
+    }
+}
+
+// --- Product Model ---
+class Product {
+    private String name;
+    private String category;
+
+    public Product() {}
+
+    public Product(String name, String category) {
+        this.name = name;
+        this.category = category;
+    }
+
+    public String getName() { return name; }
+    public String getCategory() { return category; }
+}
+
+// --- REST Controller ---
+@RestController
+@RequestMapping("/api")
+@CrossOrigin // Allow JS to fetch API
+class ProductController {
+    @GetMapping("/products")
+    public List<Product> getProducts() {
+        return Arrays.asList(
+            new Product("iPhone 14", "Electronics"),
+            new Product("MacBook Air", "Electronics"),
+            new Product("Running Shoes", "Footwear"),
+            new Product("Leather Wallet", "Accessories"),
+            new Product("T-Shirt", "Clothing")
+        );
+    }
+}
+
+// --- HTML Controller ---
+@Controller
+class HtmlController {
+    @GetMapping(value = "/", produces = MediaType.TEXT_HTML_VALUE)
+    @ResponseBody
+    public String index() {
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Product List</title>
+                <style>
+                    body { font-family: Arial; padding: 20px; }
+                    .product { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+                </style>
+            </head>
+            <body>
+                <h2>Product List</h2>
+                <label for="categoryFilter">Filter by Category:</label>
+                <select id="categoryFilter">
+                    <option value="All">All</option>
+                </select>
+                <div id="productList"></div>
+
+                <script>
+                    async function fetchProducts() {
+                        const res = await fetch('/api/products');
+                        return res.json();
+                    }
+
+                    function displayProducts(products) {
+                        const list = document.getElementById('productList');
+                        list.innerHTML = '';
+                        products.forEach(p => {
+                            const div = document.createElement('div');
+                            div.className = 'product';
+                            div.textContent = `${p.name} - ${p.category}`;
+                            list.appendChild(div);
+                        });
+                    }
+
+                    function populateCategories(products) {
+                        const select = document.getElementById('categoryFilter');
+                        const categories = ['All', ...new Set(products.map(p => p.category))];
+                        categories.forEach(cat => {
+                            const opt = document.createElement('option');
+                            opt.value = cat;
+                            opt.textContent = cat;
+                            select.appendChild(opt);
+                        });
+                    }
+
+                    async function init() {
+                        const products = await fetchProducts();
+                        populateCategories(products);
+                        displayProducts(products);
+
+                        document.getElementById('categoryFilter').addEventListener('change', (e) => {
+                            const selected = e.target.value;
+                            const filtered = selected === 'All'
+                                ? products
+                                : products.filter(p => p.category === selected);
+                            displayProducts(filtered);
+                        });
+                    }
+
+                    init();
+                </script>
+            </body>
+            </html>
+        """;
+    }
+}
