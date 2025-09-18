@@ -1,0 +1,45 @@
+// Base class
+class LibraryItem {
+  constructor(title, author, year) {
+    this.title = title;
+    this.author = author;
+    this.year = year;
+  }
+
+  getDetails() {
+    return `${this.title} by ${this.author}, published in ${this.year}`;
+  }
+}
+
+// Subclass: Book
+class Book extends LibraryItem {
+  constructor(title, author, year, genre) {
+    // call parent constructor using super()
+    super(title, author, year);
+    this.genre = genre;
+  }
+
+  // method overriding
+  getDetails() {
+    return `${super.getDetails()} [Genre: ${this.genre}]`;
+  }
+}
+
+// Subclass: Magazine
+class Magazine extends LibraryItem {
+  constructor(title, author, year, issue) {
+    super(title, author, year);
+    this.issue = issue;
+  }
+
+  getDetails() {
+    return `${super.getDetails()} [Issue: ${this.issue}]`;
+  }
+}
+
+// ✅ Usage
+const book1 = new Book("JavaScript Essentials", "John Doe", 2021, "Programming");
+const mag1 = new Magazine("Tech World", "Editor Jane", 2023, "August Edition");
+
+console.log(book1.getDetails()); // JavaScript Essentials by John Doe, published in 2021 [Genre: Programming]
+console.log(mag1.getDetails());  // Tech World by Editor Jane, published in 2023 [Issue: August Edition]
