@@ -1,0 +1,142 @@
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+const seats = [];
+for (let r = 1; r <= 3; r++) {
+  for (let n = 1; n <= 5; n++) {
+    seats.push({
+      id: R${r}-${n},
+      row: r,
+      number: n,
+      status: 'available',
+      lockedBy: null,
+      lockExpiresAt: null,
+      lockTimer: null
+    });
+  }
+}
+
+function findSeat(seatId) {
+  return seats.find(s => s.id === seatId);
+}
+
+function clearLock(seat) {
+  if (!seat) return;
+  if (seat.lockTimer) {
+    clearTimeout(seat.lockTimer);
+    seat.lockTimer = null;
+  }
+  seat.status = 'available';
+  seat.lockedBy = null;
+  seat.lockExpiresAt = null;
+}
+
+function refreshSeatLockIfExpired(seat) {
+  if (!seat) return;
+  if (seat.status === 'locked' && seat.lockExpiresAt && Date.now() > seat.lockExpiresAt) {
+    clearLock(seat);
+  }
+}
+
+app.get('/seats', (req, res) => {
+  const { status } = req.query;
+  seats.forEach(refreshSeatLockIfExpired);
+  if (status) {
+    return res.json(seats.filter(s => s.status === status));
+  }
+  res.json(seats);
+});
+
+app.post('/lock', (req, res) => {
+  const { seatId, userId, ttlSeconds = 60 } = req.body;
+  if (!seatId || !userId) {
+    return res.status(400).json({ error: 'seatId and userId are required' });
+  }
+  const seat = findSeat(seatId);
+  if (!seat) return res.status(404).json({ error: 'Seat not found' });
+  refreshSeatLockIfExpired(seat);
+  if (seat.status === 'booked') {
+    return res.status(409).json({ error: 'Seat already booked' });
+  }
+  if (seat.status === 'locked') {
+    if (seat.lockedBy === userId) {
+      return res.status(200).json({ message: 'Seat already locked by you', seat });
+    }
+    return res.status(409).json({
+      error: 'Seat is currently locked by another user',
+      lockedBy: seat.lockedBy,
+      lockExpiresAt: seat.lockExpiresAt
+    });
+  }
+  seat.status = 'locked';
+  seat.lockedBy = userId;
+  const ttlMs = Math.max(5, Number(ttlSeconds) || 60) * 1000;
+  seat.lockExpiresAt = Date.now() + ttlMs;
+  if (seat.lockTimer) clearTimeout(seat.lockTimer);
+  seat.lockTimer = setTimeout(() => {
+    if (seat.status === 'locked' && seat.lockExpiresAt && Date.now() >= seat.lockExpiresAt) {
+      clearLock(seat);
+      console.log(Lock on ${seat.id} expired and released automatically.);
+    }
+  }, ttlMs + 20);
+  res.status(200).json({
+    message: 'Seat locked successfully',
+    seat: { id: seat.id, status: seat.status, lockedBy: seat.lockedBy, lockExpiresAt: seat.lockExpiresAt }
+  });
+});
+
+app.post('/confirm', (req, res) => {
+  const { seatId, userId } = req.body;
+  if (!seatId || !userId) {
+    return res.status(400).json({ error: 'seatId and userId are required' });
+  }
+  const seat = findSeat(seatId);
+  if (!seat) return res.status(404).json({ error: 'Seat not found' });
+  refreshSeatLockIfExpired(seat);
+  if (seat.status === 'booked') {
+    return res.status(409).json({ error: 'Seat already booked' });
+  }
+  if (seat.status !== 'locked') {
+    return res.status(409).json({ error: 'Seat is not locked; cannot confirm' });
+  }
+  if (seat.lockedBy !== userId) {
+    return res.status(403).json({ error: 'You do not own the lock for this seat' });
+  }
+  if (seat.lockTimer) {
+    clearTimeout(seat.lockTimer);
+    seat.lockTimer = null;
+  }
+  seat.status = 'booked';
+  seat.lockedBy = userId;
+  seat.lockExpiresAt = null;
+  res.json({ message: 'Seat booking confirmed', seat: { id: seat.id, status: seat.status, bookedBy: seat.lockedBy } });
+});
+
+app.post('/unlock', (req, res) => {
+  const { seatId, userId } = req.body;
+  if (!seatId) return res.status(400).json({ error: 'seatId is required' });
+  const seat = findSeat(seatId);
+  if (!seat) return res.status(404).json({ error: 'Seat not found' });
+  if (seat.status === 'booked') {
+    return res.status(409).json({ error: 'Seat already booked and cannot be unlocked' });
+  }
+  if (seat.status === 'locked' && userId && seat.lockedBy !== userId) {
+    return res.status(403).json({ error: 'You do not own the lock' });
+  }
+  if (seat.status !== 'locked') {
+    return res.status(400).json({ error: 'Seat is not locked' });
+  }
+  clearLock(seat);
+  res.json({ message: 'Lock released', seat: { id: seat.id, status: seat.status } });
+});
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Ticket Booking API is up. Use /seats, /lock, /confirm, /unlock' });
+});
+
+app.listen(PORT, () => {
+  console.log(Ticket Booking server listening on http://localhost:${PORT});
+});
