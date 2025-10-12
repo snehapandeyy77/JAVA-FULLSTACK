@@ -1,0 +1,113 @@
+import React from 'react';
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { Provider, useSelector, useDispatch } from 'react-redux';
+
+// Sample products
+const PRODUCTS = [
+  { id: 1, name: 'Phone', price: 599 },
+  { id: 2, name: 'Headphones', price: 99 },
+  { id: 3, name: 'Laptop', price: 999 },
+];
+
+// Redux slice for cart management
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState: [],
+  reducers: {
+    addItem: (state, action) => {
+      const item = state.find(i => i.id === action.payload.id);
+      if (item) {
+        item.quantity += 1;
+      } else {
+        state.push({ ...action.payload, quantity: 1 });
+      }
+    },
+    removeItem: (state, action) => {
+      return state.filter(item => item.id !== action.payload);
+    },
+    updateQuantity: (state, action) => {
+      const { id, quantity } = action.payload;
+      const item = state.find(i => i.id === id);
+      if (item && quantity > 0) {
+        item.quantity = quantity;
+      }
+    }
+  }
+});
+
+const { actions, reducer } = cartSlice;
+const store = configureStore({ reducer: { cart: reducer } });
+
+// Product listing component
+const ProductList = () => {
+  const dispatch = useDispatch();
+  return (
+    <div>
+      <h3>Products</h3>
+      <ul>
+        {PRODUCTS.map(product => (
+          <li key={product.id}>
+            <strong>{product.name}</strong> - ₹{product.price}
+            <button onClick={() => dispatch(actions.addItem(product))}
+              style={{ marginLeft: 10 }}>
+              Add to Cart
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+// Shopping cart component
+const Cart = () => {
+  const cart = useSelector(state => state.cart);
+  const dispatch = useDispatch();
+
+  return (
+    <div>
+      <h3>Shopping Cart</h3>
+      {cart.length === 0 ? <p>Cart is empty.</p> : (
+        <ul>
+          {cart.map(item => (
+            <li key={item.id}>
+              <strong>{item.name}</strong> - ₹{item.price} ×
+              <input
+                type="number"
+                value={item.quantity}
+                min={1}
+                onChange={e => dispatch(actions.updateQuantity({
+                  id: item.id,
+                  quantity: Number(e.target.value)
+                }))}
+                style={{ width: 40, marginLeft: 5, marginRight: 5 }}
+              />
+              = ₹{item.price * item.quantity}
+              <button
+                style={{ marginLeft: 10 }}
+                onClick={() => dispatch(actions.removeItem(item.id))}>
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+// App root
+function App() {
+  return (
+    <Provider store={store}>
+      <div style={{ margin: "30px auto", maxWidth: 600 }}>
+        <h2>Redux Toolkit Shopping Cart Demo</h2>
+        <ProductList />
+        <hr />
+        <Cart />
+      </div>
+    </Provider>
+  );
+}
+
+export default App;
