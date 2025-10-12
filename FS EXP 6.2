@@ -1,0 +1,60 @@
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const app = express();
+app.use(express.json());
+
+const SECRET_KEY = 'supersecretkey';
+const user = { username: 'user1', password: 'pass123' };
+
+// In-memory bank account (for demo)
+let account = { username: 'user1', balance: 1000 };
+
+// JWT middleware
+function authenticateJWT(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Token missing' });
+
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) return res.status(403).json({ error: 'Token invalid' });
+    req.user = decoded;
+    next();
+  });
+}
+
+// Login route (get JWT)
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === user.username && password === user.password) {
+    const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
+// View account balance (protected)
+app.get('/balance', authenticateJWT, (req, res) => {
+  res.json({ balance: account.balance });
+});
+
+// Deposit money (protected)
+app.post('/deposit', authenticateJWT, (req, res) => {
+  const amount = Number(req.body.amount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid deposit amount' });
+  account.balance += amount;
+  res.json({ balance: account.balance });
+});
+
+// Withdraw money (protected)
+app.post('/withdraw', authenticateJWT, (req, res) => {
+  const amount = Number(req.body.amount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid withdrawal amount' });
+  if (amount > account.balance) return res.status(400).json({ error: 'Insufficient balance' });
+  account.balance -= amount;
+  res.json({ balance: account.balance });
+});
+
+// Start server
+app.listen(3000, () => console.log('Banking API server running on port 3000'));
+
