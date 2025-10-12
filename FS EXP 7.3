@@ -1,0 +1,92 @@
+// ===== Node.js Backend (Express + Socket.io) =====
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const { Server } = require('socket.io');
+
+// Only run backend if in Node environment
+if (typeof require !== 'undefined' && typeof module !== 'undefined') {
+  const app = express();
+  app.use(cors());
+
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: '*' } });
+  let messages = [];
+
+  io.on('connection', (socket) => {
+    socket.emit('chatMessages', messages);
+    socket.on('sendMessage', ({ name, text }) => {
+      const message = { name, text };
+      messages.push(message);
+      io.emit('chatMessages', messages);
+    });
+  });
+  server.listen(5000, () => console.log('Server running on 5000'));
+}
+
+// ===== React Frontend (place in src/ChatApp.js) =====
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
+
+const ChatApp = () => {
+  const [name, setName] = useState('');
+  const [text, setText] = useState('');
+  const [messages, setMessages] = useState([]);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    socket.on('chatMessages', setMessages);
+    return () => socket.off('chatMessages');
+  }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    if (name && text) {
+      socket.emit('sendMessage', { name, text });
+      setText('');
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 400, margin: '30px auto', border: '1px solid #ddd', padding: 16, borderRadius: 8 }}>
+      <h2>Real-Time Chat App</h2>
+      <form onSubmit={sendMessage}>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Name"
+          required
+          style={{ width: '49%', marginRight: '2%' }}
+        />
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="Message"
+          required
+          style={{ width: '49%' }}
+        />
+        <button type="submit" style={{ width: '100%', marginTop: 5 }}>Send</button>
+      </form>
+      <div style={{ height: 250, overflowY: 'auto', background: '#f7f7f7', padding: 10, borderRadius: 4 }}>
+        {messages.map((msg, idx) => (
+          <div key={idx}><strong>{msg.name}:</strong> {msg.text}</div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+    </div>
+  );
+};
+
+export default ChatApp;
+
+// ===== Main React App (src/App.js) =====
+import React from 'react';
+import ChatApp from './ChatApp';
+function App() { return <ChatApp />; }
+export default App;
