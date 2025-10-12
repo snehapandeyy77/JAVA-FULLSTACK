@@ -1,0 +1,73 @@
+// This is a complete code snippet that includes both Express backend and React frontend in one file format.
+// For actual compilation/use, run Express API with Node, and React code in your React project's src/ folder.
+
+// ----- Express Backend -----
+const express = require('express');
+const cors = require('cors');
+
+// Start backend server only if not in browser/React environment
+if (typeof require !== 'undefined' && typeof module !== 'undefined') {
+  const app = express();
+  app.use(cors());
+
+  const products = [
+    { name: 'Phone', price: 599 },
+    { name: 'Headphones', price: 99 },
+    { name: 'Laptop', price: 999 },
+  ];
+
+  app.get('/products', (req, res) => res.json(products));
+  app.listen(5000, () => console.log('API running on port 5000'));
+}
+
+// ----- React Frontend (place in src/ProductList.js) -----
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const ProductList = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/products')
+      .then(response => {
+        setProducts(response.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to fetch products.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p style={{color: 'red'}}>{error}</p>;
+
+  return (
+    <ul>
+      {products.map((p, idx) => (
+        <li key={idx}>
+          <strong>{p.name}</strong>: ₹{p.price}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+export default ProductList;
+
+// ----- Main App Component (src/App.js) -----
+import React from 'react';
+import ProductList from './ProductList';
+
+function App() {
+  return (
+    <div>
+      <h2>Product Catalog</h2>
+      <ProductList />
+    </div>
+  );
+}
+
+export default App;
