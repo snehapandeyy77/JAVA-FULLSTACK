@@ -1,0 +1,60 @@
+// server.js
+
+const express = require('express');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+app.use(express.json());
+
+// Secret for JWT
+const JWT_SECRET = 'supersecretkey';
+
+// Hardcoded user for demo
+const user = {
+  id: 1,
+  username: 'testuser',
+  password: 'testpass'
+};
+
+// LOGIN - issues JWT if credentials are correct
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === user.username && password === user.password) {
+    // create JWT token, expires in 1 hour
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    return res.json({ success: true, token });
+  } else {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+});
+
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  if (!token) return res.status(401).json({ success: false, message: 'Token required' });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ success: false, message: 'Token invalid' });
+    req.user = user;
+    next();
+  });
+}
+
+// PROTECTED ROUTE
+app.get('/protected', authenticateToken, (req, res) => {
+  res.json({ success: true, message: 'Protected content accessed!', user: req.user });
+});
+
+// Test accessible route
+app.get('/', (req, res) => {
+  res.send('JWT Authentication Example');
+});
+
+app.listen(3000, () => {
+  console.log('Server running on port 3000');
+  console.log('Test login: username=testuser, password=testpass');
+});
