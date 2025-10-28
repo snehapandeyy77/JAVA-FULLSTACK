@@ -1,0 +1,29 @@
+// server.js
+const express = require('express');
+const path = require('path');
+const os = require('os');
+const app = express();
+
+// ======== BACKEND API =========
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Hello from Node.js + React Full Stack App!',
+    servedBy: os.hostname()
+  });
+});
+
+// ======== FRONTEND (React) =========
+// In a real setup, build your React app first: npm run build
+// Place the "build" folder in the same directory as this file
+app.use(express.static(path.join(__dirname, 'build')));
+
+// Handle all other routes to serve the React index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+// ======== SERVER LISTEN =========
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`✅ Full Stack App running on port ${PORT}`);
+});
