@@ -1,0 +1,49 @@
+import React, { useState } from 'react';
+
+function LoginForm() {
+  // State for username, password and validation message
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Basic validation check
+    if (username.trim() === '' || password.trim() === '') {
+      setError('Please enter both username and password.');
+    } else {
+      setError('');
+      // Log username and password to console
+      console.log('Username:', username);
+      console.log('Password:', password);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ maxWidth: '300px', margin: '0 auto' }}>
+      <h2>Login Form</h2>
+      <div>
+        <label>Username:</label>
+        <input
+          type="text"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          placeholder="Enter your username"
+        />
+      </div>
+      <div>
+        <label>Password:</label>
+        <input
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          placeholder="Enter your password"
+        />
+      </div>
+      {error && <div style={{ color: 'red', marginTop: '8px' }}>{error}</div>}
+      <button type="submit" style={{ marginTop: '12px' }}>Login</button>
+    </form>
+  );
+}
+
+export default LoginForm;
