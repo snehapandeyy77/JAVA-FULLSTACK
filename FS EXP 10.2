@@ -1,0 +1,108 @@
+// --- Backend (Express/API) ---
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const app = express();
+app.use(express.json());
+app.use(cors());
+// --- Database Models ---
+mongoose.connect("mongodb://localhost:27017/blogDemo");
+
+const UserSchema = new mongoose.Schema({
+  username: String,
+  password: String,
+  profile: String
+});
+const PostSchema = new mongoose.Schema({
+  author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  title: String,
+  content: String,
+  comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }]
+});
+const CommentSchema = new mongoose.Schema({
+  author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  post: { type: mongoose.Schema.Types.ObjectId, ref: "Post" },
+  text: String
+});
+const User = mongoose.model("User", UserSchema);
+const Post = mongoose.model("Post", PostSchema);
+const Comment = mongoose.model("Comment", CommentSchema);
+
+// --- Auth Middleware ---
+function authenticateToken(req, res, next) {
+  const token = req.headers["authorization"];
+  jwt.verify(token, "secret", (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+}
+
+// --- Auth Routes ---
+app.post("/api/register", async (req, res) => {
+  const user = await User.create(req.body);
+  res.json(user);
+});
+app.post("/api/login", async (req, res) => {
+  const user = await User.findOne(req.body);
+  if (!user) return res.sendStatus(401);
+  const token = jwt.sign({ id: user._id, username: user.username }, "secret");
+  res.json({ token });
+});
+
+// --- Blog APIs ---
+app.get("/api/posts", async (req, res) => {
+  const posts = await Post.find().populate("author").populate({ path: "comments", populate: { path: "author" }});
+  res.json(posts);
+});
+app.post("/api/posts", authenticateToken, async (req, res) => {
+  const post = await Post.create({ ...req.body, author: req.user.id });
+  res.json(post);
+});
+app.put("/api/posts/:id", authenticateToken, async (req, res) => {
+  const post = await Post.findByIdAndUpdate(req.params.id, req.body);
+  res.json(post);
+});
+app.delete("/api/posts/:id", authenticateToken, async (req, res) => {
+  await Post.findByIdAndDelete(req.params.id);
+  res.sendStatus(204);
+});
+app.post("/api/comments", authenticateToken, async (req, res) => {
+  const comment = await Comment.create({ ...req.body, author: req.user.id });
+  // Update post with comment
+  await Post.findByIdAndUpdate(req.body.post, { $push: { comments: comment._id } });
+  res.json(comment);
+});
+app.listen(5000);
+
+// --- Frontend (Minimal React Example, add to ./client/App.js) ---
+// (run create-react-app . in ./client/ then use below in App.js)
+/*
+import React, { useState, useEffect } from "react";
+function App() {
+  const [posts, setPosts] = useState([]);
+  const [token, setToken] = useState("");
+  useEffect(() => {
+    fetch("http://localhost:5000/api/posts").then(res => res.json()).then(setPosts);
+  }, []);
+  // Render posts and comments, add login/register logic as needed...
+  return (
+    <div>
+      <h2>Blog Posts</h2>
+      {posts.map(p => (<div key={p._id}>
+        <h3>{p.title}</h3>
+        <p>{p.content}</p>
+        <small>By {p.author.username}</small>
+        <h4>Comments:</h4>
+        {p.comments.map(c=> (
+          <p key={c._id}>{c.text} (by {c.author.username})</p>
+        ))}
+      </div>))}
+      {/* Login/Register/Write post forms can be added here */}
+    </div>
+  );
+}
+export default App;
+*/
+// --- END Frontend Example ---
