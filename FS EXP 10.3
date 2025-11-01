@@ -1,0 +1,68 @@
+// app.js
+const express = require('express')
+const bodyParser = require('body-parser')
+const app = express()
+
+app.use(bodyParser.json())
+app.use(express.static(__dirname))
+
+let posts = []
+let users = []
+
+// Backend routes
+app.post('/api/register', (req, res) => {
+  const { username, password } = req.body
+  users.push({ username, password })
+  res.json({ message: 'Registered' })
+})
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body
+  const user = users.find(u => u.username === username && u.password === password)
+  return user ? res.json({ message: 'Logged in' }) : res.status(401).json({ error: 'Invalid credentials' })
+})
+
+app.post('/api/posts', (req, res) => {
+  posts.push({ text: req.body.text })
+  res.json({ message: 'Posted' })
+})
+
+app.get('/api/posts', (req, res) => res.json(posts))
+
+// Frontend (minimal HTML+JS)
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <body>
+      <h1>Simple Social App</h1>
+      <input id="u" placeholder="Username">
+      <input id="p" type="password" placeholder="Password">
+      <button onclick="register()">Register</button>
+      <button onclick="login()">Login</button>
+      <br>
+      <input id="t" placeholder="Write your post">
+      <button onclick="createPost()">Post</button>
+      <ul id="feed"></ul>
+      <script>
+        function register() {
+          fetch('/api/register', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: u.value, password: p.value})})
+        }
+        function login() {
+          fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username: u.value, password: p.value})})
+        }
+        function createPost() {
+          fetch('/api/posts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: t.value})}).then(loadPosts)
+        }
+        function loadPosts() {
+          fetch('/api/posts').then(r=>r.json()).then(posts => {
+            feed.innerHTML = posts.map(p=>'<li>'+p.text+'</li>').join('')
+          })
+        }
+        loadPosts()
+      </script>
+      </body>
+    </html>
+  `)
+})
+
+app.listen(3000, () => console.log('App running on http://localhost:3000'))
